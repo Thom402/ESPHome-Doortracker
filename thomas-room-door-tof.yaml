@@ -1,0 +1,317 @@
+# --------------------------------------------------------------------------
+# Substitutions
+#
+# These are substitutions as used by the configuration packages from below.
+# You can uncomment and update the ones that you want to modify.
+# --------------------------------------------------------------------------
+
+substitutions:
+  name: thomas-room-door-tof
+  friendly_name: thomas-room-door-ToF
+  device_name: thomas-room-door-ToF
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+  on_boot:
+    # ...
+    then:
+      - number.to_min: personsInRoom
+      - lambda: !lambda |-
+          id(template_text).publish_state("Init Sensors");
+          id(enter_room).publish_state(false);
+          id(leave_room).publish_state(false);
+
+esp8266:
+  board: d1_mini
+
+# Enable logging
+logger:
+  level: DEBUG
+  logs:
+    vl53l0x: ERROR
+    sensor: ERROR
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  password: !secret ota_password
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name}_fallback
+    password: !secret ap_password
+
+captive_portal:
+
+i2c:
+  sda: D2
+  scl: D1
+
+number:
+  - platform: template
+    name: "Persons in Room"
+    id: personsInRoom
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: box
+    on_value: 
+      then:
+        lambda: |-
+            id(template_text).publish_state("'Persons in Room' changed to: " + (to_string(int(id(personsInRoom).state))));
+
+
+  - platform: template
+    name: "Door Distance 01"
+    id: door_distance_01
+    min_value: 0
+    max_value: 1.5
+    step: .1
+    unit_of_measurement: "m"
+    optimistic: true
+    device_class: "distance"
+    on_value: 
+      then:
+        lambda: |-
+            id(template_text).publish_state("'Door Distance 01' changed to: " + (to_string(id(door_distance_01).state)));
+
+  - platform: template
+    name: "Door Distance 02"
+    id: door_distance_02
+    min_value: 0
+    max_value: 1.5
+    step: .1
+    unit_of_measurement: "m"
+    optimistic: true
+    device_class: "distance"
+    on_value: 
+      then:
+        lambda: |-
+            id(template_text).publish_state("'Door Distance 02' changed to: " + (to_string(id(door_distance_02).state)));
+
+sensor:
+  - platform: vl53l0x
+    name: "distance sensor 01"
+    id: distance01
+    address: 0x41
+    enable_pin: D3
+    # timeout: 10ms
+    update_interval: 33ms
+    unit_of_measurement: "m"
+    device_class: "distance"
+    filters:
+    - filter_out: NAN
+    - median:
+        window_size: 7
+        send_every: 4
+        send_first_at: 3
+    on_value: 
+      then:
+        lambda: |-
+            if(id(door_distance_01).state == 0){
+              id(door_distance_01).publish_state(id(distance01).state -.2);
+            };
+
+  - platform: vl53l0x
+    name: "distance sensor 02"
+    id: distance02
+    address: 0x42
+    enable_pin: D5
+    # timeout: 10ms
+    update_interval: 33ms
+    unit_of_measurement: "m"
+    device_class: "distance"
+    filters:
+    - filter_out: NAN
+    - median:
+        window_size: 7
+        send_every: 4
+        send_first_at: 3
+    on_value: 
+      then:
+        lambda: |-
+            if(id(door_distance_02).state == 0){
+              id(door_distance_02).publish_state(id(distance02).state -.2);
+            };
+
+binary_sensor:
+  - platform: template
+    name: Motion Sensor 01
+    id: motion_sensor01
+    internal: false
+    device_class: "motion"
+    filters:
+      - delayed_off: 100ms
+    lambda: !lambda |-
+      return id(distance01).state <= id(door_distance_01).state && !id(leave_room).state && !id(enter_room).state;
+    on_press:
+
+      if:
+        condition:
+          for:
+            time: 400ms
+            condition:
+                  binary_sensor.is_off: motion_sensor02
+
+        then:
+          - text_sensor.template.publish:
+              id: template_text
+              state: "Detected motion from the inside. Waiting 4s for 'Motion Sensor 02' to trigger..."
+
+          - wait_until:
+              condition:
+                binary_sensor.is_on: motion_sensor02
+              timeout: 4s
+          - if:
+              condition:
+                binary_sensor.is_on: motion_sensor02
+
+              then:
+
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "Person walked out"
+
+                - lambda: !lambda |-
+                    id(leave_room).publish_state(true);
+
+                - binary_sensor.template.publish:
+                      id: leave_room
+                      state: OFF
+
+              else:
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "Warning: Awaiting possible walk out timed out"
+
+                - wait_until:
+                    condition:
+                      binary_sensor.is_off: motion_sensor01
+
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "'Motion Sensor 01' released"
+
+        else:
+          - text_sensor.template.publish:
+              id: template_text
+              state: "Ein wildes Clara steht vorm Sensor"
+
+  - platform: template
+    name: Motion Sensor 02
+    id: motion_sensor02
+    # internal: true
+    device_class: "motion"
+    filters:
+      - delayed_off: 100ms
+    lambda: !lambda |-
+      return id(distance02).state <= id(door_distance_02).state && !id(leave_room).state && !id(enter_room).state;
+    on_press:
+
+      if:
+        condition:
+          for:
+            time: 400ms
+            condition: 
+              binary_sensor.is_off: motion_sensor01
+
+        then:
+          - text_sensor.template.publish:
+              id: template_text
+              state: "Detected motion from the outside. Waiting for 'Motion Sensor 01'"
+
+          - wait_until:
+              condition:
+                binary_sensor.is_on: motion_sensor01
+              timeout: 4s
+
+          - if:
+              condition:
+                binary_sensor.is_on: motion_sensor01
+
+              then:
+
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "Person walked in"
+
+                - lambda: !lambda |-
+                    id(enter_room).publish_state(true);
+
+                - binary_sensor.template.publish:
+                      id: enter_room
+                      state: OFF
+
+              else:
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "'Motion Sensor 01' not triggered. Timeout"
+
+                - wait_until:
+                    condition:
+                      binary_sensor.is_off: motion_sensor02
+
+                - text_sensor.template.publish:
+                    id: template_text
+                    state: "'Motion Sensor 02' released"
+
+        else:
+          - text_sensor.template.publish:
+              id: template_text
+              state: "Ein wildes Clara steht vorm Sensor"
+
+  - platform: template
+    name: Enter Room
+    id: enter_room
+    internal: false
+    device_class: "motion"
+    on_press:
+      then:
+        - number.increment:
+            id: personsInRoom
+            cycle: false
+        - lambda: |-
+            id(template_text).publish_state("'enter_room' is true. Increment number.");
+
+    filters:
+      - delayed_off: 500ms
+
+  - platform: template
+    name: Leave Room
+    id: leave_room
+    internal: false
+    device_class: "motion"
+    on_press:
+      then:
+        - number.decrement:
+            id: personsInRoom
+            cycle: false
+        - lambda: |-
+            id(template_text).publish_state("'leave_room' is true. Decrement number.");
+    filters:
+      - delayed_off: 500ms
+
+  - platform: template
+    name: "Occupancy"
+    id: occupancy
+    lambda: |-
+      return id(personsInRoom).state > 0;
+    device_class: "occupancy"
+
+# Logger for HA frontend
+text_sensor:
+  - platform: template
+    id: template_text
+    name: "Logger"
+
