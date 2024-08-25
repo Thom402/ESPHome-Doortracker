@@ -127,7 +127,15 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - filter_out: NAN
+    # - filter_out: NAN
+    # Test if filter_out is creating the overcounting issue - delete comment before merge
+    - lambda: |-
+        if (id(distance01).state == NAN) {
+          id(template_text).publish_state("'Distance Sensor 01 == NAN'; Resetting to 0");
+          return 0;
+        } else {
+          return id(distance01).state;
+        }
     - median:
         window_size: 7
         send_every: 4
@@ -149,7 +157,15 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - filter_out: NAN
+    # - filter_out: NAN
+    # Test if filter_out is creating the overcounting issue - delete comment before merge
+    - lambda: |-
+        if (id(distance01).state == NAN) {
+          id(template_text).publish_state("'Distance Sensor 02 == NAN'; Resetting to 0");
+          return 0;
+        } else {
+          return id(distance01).state;
+        }
     - median:
         window_size: 7
         send_every: 4
