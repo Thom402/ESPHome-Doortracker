@@ -11,7 +11,7 @@ A ESPHome project designed to count people passing through a doorway using two T
 
 ### configure yaml file in root directory and than compile file to generate firmware
 >
-> esphome compile deviceConfig.yaml
+> esphome compile thomas-room-door-tof.yaml
 >
 
 ### install the firmware to the device
@@ -25,14 +25,14 @@ to the connected esp device
 
 ## update firmware
 >
-1. > esphome compile deviceConfig.yaml
-2. > esphome upload deviceConfig.yaml
+1. > esphome compile thomas-room-door-tof.yaml
+2. > esphome upload thomas-room-door-tof.yaml
 >
 ---
 
 ## secrets
 
-configure secrets in `secrets.yaml` file and bind the properties to the ``deviceConfig.yaml`` file
+configure secrets in `secrets.yaml` file and bind the properties to the ``thomas-room-door-tof.yaml`` file
 
 To Bind to the root secrets file you can add another secrets.yaml in the device folder and paste this into the file:
 >
@@ -43,7 +43,7 @@ To Bind to the root secrets file you can add another secrets.yaml in the device 
    >
    > property: "myRealProperty"
    >
-2. configure secret in `deviceConfig.yaml` file
+2. configure secret in `thomas-room-door-tof.yaml` file
    >
    > property: !secret propety
    >
