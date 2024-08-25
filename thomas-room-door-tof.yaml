@@ -115,7 +115,6 @@ number:
         lambda: |-
             id(template_text).publish_state("'Door Distance Offset' changed to: " + (to_string(id(door_distance_offset).state)));
 
-
 sensor:
   - platform: vl53l0x
     name: "distance sensor 01"
