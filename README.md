@@ -28,6 +28,12 @@ to the connected esp device
 1. > esphome compile thomas-room-door-tof.yaml
 2. > esphome upload thomas-room-door-tof.yaml
 >
+
+or
+
+>
+1. > esphome run thomas-room-door-tof.yaml
+>
 ---
 
 ## secrets
