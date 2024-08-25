@@ -114,6 +114,8 @@ number:
       then:
         lambda: |-
             id(template_text).publish_state("'Door Distance Offset' changed to: " + (to_string(id(door_distance_offset).state)));
+            id(door_distance_01).publish_state(id(distance01).state + id(door_distance_offset).state);
+            id(door_distance_02).publish_state(id(distance02).state + id(door_distance_offset).state);
 
 sensor:
   - platform: vl53l0x
@@ -198,7 +200,7 @@ binary_sensor:
         then:
           - text_sensor.template.publish:
               id: template_text
-              state: "Detected motion from the inside. Waiting 4s for 'Motion Sensor 02' to trigger..."
+              state: "Detected motion from the inside. Waiting for 'Motion Sensor 02'"
 
           - wait_until:
               condition:
