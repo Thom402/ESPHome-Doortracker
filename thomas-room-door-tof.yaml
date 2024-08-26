@@ -114,7 +114,8 @@ number:
       then:
         lambda: |-
             id(template_text).publish_state("'Door Distance Offset' changed to: " + (to_string(id(door_distance_offset).state)));
-
+            id(door_distance_01).publish_state(id(distance01).state + id(door_distance_offset).state);
+            id(door_distance_02).publish_state(id(distance02).state + id(door_distance_offset).state);
 
 sensor:
   - platform: vl53l0x
@@ -127,7 +128,13 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - filter_out: NAN
+    - skip_initial: 10
+    - lambda: |-
+        if(x == NAN) {
+          id(template_text).publish_state("'Distance Sensor 01 == NAN'; Resetting to 0");
+          return 0.0;
+        };
+        return x;
     - median:
         window_size: 7
         send_every: 4
@@ -149,7 +156,13 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - filter_out: NAN
+    - skip_initial: 10
+    - lambda: |-
+        if (x == NAN) {
+          id(template_text).publish_state("'Distance Sensor 02 == NAN'; Resetting to 0");
+          return 0.0;
+          }
+          return x;
     - median:
         window_size: 7
         send_every: 4
@@ -183,12 +196,12 @@ binary_sensor:
         then:
           - text_sensor.template.publish:
               id: template_text
-              state: "Detected motion from the inside. Waiting 4s for 'Motion Sensor 02' to trigger..."
+              state: "Detected motion from the inside. Waiting for 'Motion Sensor 02'"
 
           - wait_until:
               condition:
                 binary_sensor.is_on: motion_sensor02
-              timeout: 4s
+              timeout: 60s
           - if:
               condition:
                 binary_sensor.is_on: motion_sensor02
@@ -250,7 +263,7 @@ binary_sensor:
           - wait_until:
               condition:
                 binary_sensor.is_on: motion_sensor01
-              timeout: 4s
+              timeout: 60s
 
           - if:
               condition:
