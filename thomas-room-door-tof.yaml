@@ -129,8 +129,6 @@ sensor:
     device_class: "distance"
     filters:
     - skip_initial: 10
-    # - filter_out: NAN
-    # Test if filter_out is creating the overcounting issue - delete comment before merge
     - lambda: |-
         if(x == NAN) {
           id(template_text).publish_state("'Distance Sensor 01 == NAN'; Resetting to 0");
@@ -159,8 +157,6 @@ sensor:
     device_class: "distance"
     filters:
     - skip_initial: 10
-    # - filter_out: NAN
-    # Test if filter_out is creating the overcounting issue - delete comment before merge
     - lambda: |-
         if (x == NAN) {
           id(template_text).publish_state("'Distance Sensor 02 == NAN'; Resetting to 0");
@@ -205,7 +201,7 @@ binary_sensor:
           - wait_until:
               condition:
                 binary_sensor.is_on: motion_sensor02
-              timeout: 4s
+              timeout: 60s
           - if:
               condition:
                 binary_sensor.is_on: motion_sensor02
@@ -267,7 +263,7 @@ binary_sensor:
           - wait_until:
               condition:
                 binary_sensor.is_on: motion_sensor01
-              timeout: 4s
+              timeout: 60s
 
           - if:
               condition:
