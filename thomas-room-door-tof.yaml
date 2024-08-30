@@ -17,7 +17,7 @@ esphome:
   on_boot:
     # ...
     then:
-      - number.to_min: personsInRoom
+      # - number.to_min: personsInRoom
       - lambda: !lambda |-
           id(template_text).publish_state("Init Sensors");
           id(enter_room).publish_state(false);
@@ -32,6 +32,8 @@ logger:
   logs:
     vl53l0x: ERROR
     sensor: ERROR
+    number: ERROR
+
 
 # Enable Home Assistant API
 api:
@@ -67,6 +69,7 @@ number:
     step: 1
     mode: box
     restore_value: true
+    internal: false
     on_value: 
       then:
         lambda: |-
@@ -83,10 +86,11 @@ number:
     optimistic: true
     device_class: "distance"
     restore_value: true
-    on_value: 
-      then:
-        lambda: |-
-            id(template_text).publish_state("'Door Distance 01' changed to: " + (to_string(id(door_distance_01).state)));
+    internal: true
+    # on_value: 
+    #   then:
+    #     lambda: |-
+    #         id(template_text).publish_state("'Door Distance 01' changed to: " + (to_string(id(door_distance_01).state)));
 
   - platform: template
     name: "Door Distance 02"
@@ -98,10 +102,11 @@ number:
     optimistic: true
     device_class: "distance"
     restore_value: true
-    on_value: 
-      then:
-        lambda: |-
-            id(template_text).publish_state("'Door Distance 02' changed to: " + (to_string(id(door_distance_02).state)));
+    internal: true
+    # on_value: 
+    #   then:
+    #     lambda: |-
+    #         id(template_text).publish_state("'Door Distance 02' changed to: " + (to_string(id(door_distance_02).state)));
 
   - platform: template
     name: "Door Distance Offset"
@@ -114,6 +119,7 @@ number:
     optimistic: true
     device_class: "distance"
     initial_value: -.5
+    mode: box
     on_value: 
       then:
         lambda: |-
@@ -131,6 +137,7 @@ sensor:
     update_interval: 33ms
     unit_of_measurement: "m"
     device_class: "distance"
+    internal: true
     filters:
     - skip_initial: 100
     - lambda: |-
@@ -157,6 +164,7 @@ sensor:
     update_interval: 33ms
     unit_of_measurement: "m"
     device_class: "distance"
+    internal: true
     filters:
     - skip_initial: 100
     - lambda: |-
@@ -175,10 +183,11 @@ sensor:
 
 
   - platform: template
-    name: "Door Distance 01 Calibration"
+    name: "Calibrated Door Distance 01"
     id: door_distance_01_calibration
+    device_class: "distance"
     filters:
-      - skip_initial: 120
+      # - skip_initial: 120
       - clamp:
           min_value: 0.5
           ignore_out_of_range: true
@@ -195,12 +204,13 @@ sensor:
 
 
   - platform: template
-    name: "Door Distance 02 Calibration"
+    name: "Calibrated Door Distance 02"
     id: door_distance_02_calibration
+    device_class: "distance"
     filters:
-      - skip_initial: 120
+      # - skip_initial: 120
       - clamp:
-          min_value: 0.5
+          min_value: 0.6
           ignore_out_of_range: true
       - sliding_window_moving_average:
           window_size: 165
@@ -217,7 +227,7 @@ binary_sensor:
   - platform: template
     name: Motion Sensor 01
     id: motion_sensor01
-    internal: false
+    internal: true
     device_class: "motion"
     filters:
       - delayed_off: 100ms
@@ -279,7 +289,7 @@ binary_sensor:
   - platform: template
     name: Motion Sensor 02
     id: motion_sensor02
-    # internal: true
+    internal: true
     device_class: "motion"
     filters:
       - delayed_off: 100ms
@@ -342,7 +352,7 @@ binary_sensor:
   - platform: template
     name: Enter Room
     id: enter_room
-    internal: false
+    internal: true
     device_class: "motion"
     on_press:
       then:
@@ -358,8 +368,8 @@ binary_sensor:
   - platform: template
     name: Leave Room
     id: leave_room
-    internal: false
     device_class: "motion"
+    internal: true
     on_press:
       then:
         - number.decrement:
