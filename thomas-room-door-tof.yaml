@@ -66,6 +66,7 @@ number:
     max_value: 100
     step: 1
     mode: box
+    restore_value: true
     on_value: 
       then:
         lambda: |-
@@ -81,6 +82,7 @@ number:
     unit_of_measurement: "m"
     optimistic: true
     device_class: "distance"
+    restore_value: true
     on_value: 
       then:
         lambda: |-
@@ -95,6 +97,7 @@ number:
     unit_of_measurement: "m"
     optimistic: true
     device_class: "distance"
+    restore_value: true
     on_value: 
       then:
         lambda: |-
@@ -105,6 +108,7 @@ number:
     id: door_distance_offset
     min_value: -.9
     max_value: 0
+    restore_value: true
     step: .1
     unit_of_measurement: "m"
     optimistic: true
@@ -128,23 +132,21 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - skip_initial: 10
+    - skip_initial: 100
     - lambda: |-
         if(x == NAN) {
           id(template_text).publish_state("'Distance Sensor 01 == NAN'; Resetting to 0");
           return 0.0;
         };
         return x;
-    - median:
-        window_size: 7
-        send_every: 4
-        send_first_at: 3
     on_value: 
       then:
         lambda: |-
             if(id(door_distance_01).state == 0){
               id(door_distance_01).publish_state(id(distance01).state + id(door_distance_offset).state);
             };
+            id(door_distance_01_calibration).publish_state(id(distance01).state);
+
 
   - platform: vl53l0x
     name: "distance sensor 02"
@@ -156,23 +158,60 @@ sensor:
     unit_of_measurement: "m"
     device_class: "distance"
     filters:
-    - skip_initial: 10
+    - skip_initial: 100
     - lambda: |-
         if (x == NAN) {
           id(template_text).publish_state("'Distance Sensor 02 == NAN'; Resetting to 0");
           return 0.0;
           }
           return x;
-    - median:
-        window_size: 7
-        send_every: 4
-        send_first_at: 3
     on_value: 
       then:
         lambda: |-
             if(id(door_distance_02).state == 0){
               id(door_distance_02).publish_state(id(distance02).state + id(door_distance_offset).state);
             };
+            id(door_distance_02_calibration).publish_state(id(distance02).state);
+
+
+  - platform: template
+    name: "Door Distance 01 Calibration"
+    id: door_distance_01_calibration
+    filters:
+      - skip_initial: 120
+      - clamp:
+          min_value: 0.5
+          ignore_out_of_range: true
+      - sliding_window_moving_average:
+          window_size: 165
+          send_every: 8
+          send_first_at: 8
+    lambda: |-
+      return id(distance01).state;
+    on_value: 
+      then:
+        - lambda: |-
+            id(door_distance_01).publish_state(id(door_distance_01_calibration).state + id(door_distance_offset).state);
+
+
+  - platform: template
+    name: "Door Distance 02 Calibration"
+    id: door_distance_02_calibration
+    filters:
+      - skip_initial: 120
+      - clamp:
+          min_value: 0.5
+          ignore_out_of_range: true
+      - sliding_window_moving_average:
+          window_size: 165
+          send_every: 8
+          send_first_at: 8
+    lambda: |-
+      return id(distance02).state;
+    on_value: 
+      then:
+        - lambda: |-
+            id(door_distance_02).publish_state(id(door_distance_02_calibration).state + id(door_distance_offset).state);
 
 binary_sensor:
   - platform: template
