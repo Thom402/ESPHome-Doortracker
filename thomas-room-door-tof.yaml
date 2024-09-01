@@ -118,7 +118,7 @@ number:
     unit_of_measurement: "m"
     optimistic: true
     device_class: "distance"
-    initial_value: -.5
+    initial_value: -.4
     mode: box
     on_value: 
       then:
@@ -140,6 +140,10 @@ sensor:
     internal: true
     filters:
     - skip_initial: 100
+    - median:
+        window_size: 7
+        send_every: 4
+        send_first_at: 4
     - lambda: |-
         if(x == NAN) {
           id(template_text).publish_state("'Distance Sensor 01 == NAN'; Resetting to 0");
@@ -167,6 +171,10 @@ sensor:
     internal: true
     filters:
     - skip_initial: 100
+    - median:
+        window_size: 7
+        send_every: 4
+        send_first_at: 4
     - lambda: |-
         if (x == NAN) {
           id(template_text).publish_state("'Distance Sensor 02 == NAN'; Resetting to 0");
