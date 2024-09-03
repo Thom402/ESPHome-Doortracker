@@ -238,61 +238,50 @@ binary_sensor:
     internal: true
     device_class: "motion"
     filters:
-      - delayed_off: 100ms
+      - delayed_off: 500ms
     lambda: !lambda |-
       return id(distance01).state <= id(door_distance_01).state && !id(leave_room).state && !id(enter_room).state;
     on_press:
-
-      if:
-        condition:
-          for:
-            time: 400ms
-            condition:
-                  binary_sensor.is_off: motion_sensor02
-
         then:
-          - text_sensor.template.publish:
-              id: template_text
-              state: "Detected motion from the inside. Waiting for 'Motion Sensor 02'"
-
-          - wait_until:
-              condition:
-                binary_sensor.is_on: motion_sensor02
-              timeout: 60s
+          # First Check state of motion Sensor 02 to determine the direction of the walk
+          # If motion sensor 02 is off, we know the motion comes from inside the room.
           - if:
               condition:
-                binary_sensor.is_on: motion_sensor02
-
+                binary_sensor.is_off: motion_sensor02
               then:
-
-                - text_sensor.template.publish:
-                    id: template_text
-                    state: "Person walked out"
-
                 - lambda: !lambda |-
-                    id(leave_room).publish_state(true);
+                    id(template_text).publish_state("Detected motion from the inside. Waiting for 'Motion Sensor 02'");
+                - while:
+                    condition:
+                      binary_sensor.is_on: motion_sensor01
+                    # We can now wait for the motion sensor 02 to become true
+                    then:
+                      - wait_until:
+                          binary_sensor.is_on: motion_sensor02
 
-                - binary_sensor.template.publish:
-                      id: leave_room
-                      state: OFF
-
+                      # If motion sensor 02 becoming true, we wait for the motion sensor 02 to return false again & the trigger of motion sensor 01.
+                      # After that we can publish the leave_room state to true
+                      - lambda: !lambda |-
+                          id(template_text).publish_state("Person walked from sensor 01 to sensor 02");
+                      - wait_until:
+                            and:
+                              - binary_sensor.is_off: motion_sensor02
+                              - lambda: !lambda |-
+                                  return id(distance01).state > id(door_distance_01).state;
+                      - lambda: !lambda |-
+                          id(leave_room).publish_state(true);
+                          id(motion_sensor01).publish_state(false);
+                      # Can't use lambda here because it would ignore the timeout of the binary_sensor
+                      - binary_sensor.template.publish:
+                          id: leave_room
+                          state: OFF
+              # If motion sensor 02 is on, we know the motion comes from outside the room. We don't need to do here anything
               else:
                 - text_sensor.template.publish:
                     id: template_text
-                    state: "Warning: Awaiting possible walk out timed out"
-
-                - wait_until:
-                    condition:
-                      binary_sensor.is_off: motion_sensor01
-
-                - text_sensor.template.publish:
-                    id: template_text
-                    state: "'Motion Sensor 01' released"
-
-        else:
-          - text_sensor.template.publish:
-              id: template_text
-              state: "Ein wildes Clara steht vorm Sensor"
+                    state: "'Motion Sensor 02' is already on. No walk in detected."
+                - lambda: !lambda |-
+                    id(motion_sensor01).publish_state(false);
 
   - platform: template
     name: Motion Sensor 02
@@ -300,62 +289,53 @@ binary_sensor:
     internal: true
     device_class: "motion"
     filters:
-      - delayed_off: 100ms
+      - delayed_off: 500ms
     lambda: !lambda |-
       return id(distance02).state <= id(door_distance_02).state && !id(leave_room).state && !id(enter_room).state;
     on_press:
-
-      if:
-        condition:
-          for:
-            time: 400ms
-            condition: 
+      then:
+        # First Check state of motion Sensor 01 to determine the direction of the walk
+        # If motion sensor 01 is off, we know the motion comes from outside the room.
+        - if:
+            condition:
               binary_sensor.is_off: motion_sensor01
+            then:
+              - text_sensor.template.publish:
+                  id: template_text
+                  state: "Detected motion from the outside. Waiting for 'Motion Sensor 01'"
+              - while:
+                  condition:
+                    binary_sensor.is_on: motion_sensor02
+                  then:
+                  # We can now wait for the motion sensor 01 to become true
+                    - wait_until:
+                        binary_sensor.is_on: motion_sensor01
 
-        then:
-          - text_sensor.template.publish:
-              id: template_text
-              state: "Detected motion from the outside. Waiting for 'Motion Sensor 01'"
-
-          - wait_until:
-              condition:
-                binary_sensor.is_on: motion_sensor01
-              timeout: 60s
-
-          - if:
-              condition:
-                binary_sensor.is_on: motion_sensor01
-
-              then:
-
-                - text_sensor.template.publish:
-                    id: template_text
-                    state: "Person walked in"
-
-                - lambda: !lambda |-
-                    id(enter_room).publish_state(true);
-
-                - binary_sensor.template.publish:
-                      id: enter_room
-                      state: OFF
-
-              else:
-                - text_sensor.template.publish:
-                    id: template_text
-                    state: "'Motion Sensor 01' not triggered. Timeout"
-
-                - wait_until:
-                    condition:
-                      binary_sensor.is_off: motion_sensor02
-
-                - text_sensor.template.publish:
-                    id: template_text
-                    state: "'Motion Sensor 02' released"
-
-        else:
-          - text_sensor.template.publish:
-              id: template_text
-              state: "Ein wildes Clara steht vorm Sensor"
+                    # If motion sensor 01 becoming true, we wait for the motion sensor 01 & the trigger of motion sensor 02 to return false again.
+                    # After that we can publish the enter_room state to true
+                    - text_sensor.template.publish: 
+                        id: template_text
+                        state: "Person walked from sensor 02 to sensor 01"
+                    - wait_until:
+                        condition:
+                          and:
+                            - binary_sensor.is_off: motion_sensor01
+                            - lambda: !lambda |-
+                                return id(distance02).state > id(door_distance_02).state;
+                    - lambda: !lambda |-
+                        id(enter_room).publish_state(true);
+                        id(motion_sensor02).publish_state(false);
+                    # Can't use lambda here because it would ignore the timeout of the binary_sensor
+                    - binary_sensor.template.publish:
+                        id: enter_room
+                        state: OFF
+            # If motion sensor 01 is on, we know the motion comes from inside the room. We don't need to do here anything
+            else:
+              - text_sensor.template.publish:
+                  id: template_text
+                  state: "'Motion Sensor 01' is already on. No walk out detected."
+              - lambda: !lambda |-
+                  id(motion_sensor02).publish_state(false);
 
   - platform: template
     name: Enter Room
@@ -371,7 +351,7 @@ binary_sensor:
             id(template_text).publish_state("'enter_room' is true. Increment number.");
 
     filters:
-      - delayed_off: 500ms
+      - delayed_off: 100ms
 
   - platform: template
     name: Leave Room
@@ -386,7 +366,7 @@ binary_sensor:
         - lambda: |-
             id(template_text).publish_state("'leave_room' is true. Decrement number.");
     filters:
-      - delayed_off: 500ms
+      - delayed_off: 100ms
 
   - platform: template
     name: "Occupancy"
